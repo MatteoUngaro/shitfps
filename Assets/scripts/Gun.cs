@@ -20,6 +20,14 @@ public class Gun : MonoBehaviour
     public float bulletImpulse = 8f; // spinta per colpo
     public bool onlyPushPushables = true;
 
+    [Header("Audio")]
+    public AudioSource audioSource;   // aggiungi un AudioSource sull'arma
+    public AudioClip[] fireSounds;    // inserisci qui i 4 suoni
+    
+    [Header("Audio Pitch Variation")]
+    public float minPitch = 0.9f;
+    public float maxPitch = 1.1f;
+
     float nextShot;
 
     void Awake()
@@ -94,6 +102,15 @@ public class Gun : MonoBehaviour
 
         if (tracerPrefab)
             StartCoroutine(DoTracer(muzzle ? muzzle.position : cam.transform.position, endPoint));
+
+        // 🎵 Play random gunshot sound
+        if (fireSounds != null && fireSounds.Length > 0 && audioSource != null)
+        {
+            int idx = Random.Range(0, fireSounds.Length);
+
+            audioSource.pitch = Random.Range(minPitch, maxPitch); // variazione del pitch ±10%
+            audioSource.PlayOneShot(fireSounds[idx]);
+        }
 
         // Trigger visual recoil
         GetComponent<GunRecoil>()?.DoRecoil();
