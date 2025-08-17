@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering.Universal;
 
 public class Gun : MonoBehaviour
 {
@@ -10,6 +11,9 @@ public class Gun : MonoBehaviour
     public int damage = 10;
     public LayerMask hitMask = ~0;
     public GameObject impactFx; // metti un prefab semplice
+    public DecalProjector bulletDecalPrefab;
+    public float bulletDecalSize = 0.12f; // 12 cm
+    public float bulletDecalLife = 12f;
     public LineRenderer tracerPrefab;
     public ParticleSystem muzzleFx; // assegna MuzzleFlash
     public ParticleSystem muzzleSmoke;
@@ -66,6 +70,8 @@ public class Gun : MonoBehaviour
                 Destroy(fx, 2f); // o fx.GetComponent<ParticleSystem>().main.duration
             }
 
+            PlaceBulletDecal(hit);
+
             Debug.Log($"[Gun] Hit: {hit.collider.name} @ {hit.distance:0.0}m");
         }
         else
@@ -102,5 +108,33 @@ public class Gun : MonoBehaviour
         lr.SetPosition(1, end);
         yield return new WaitForSeconds(0.02f); // Reduced from 0.05f to 0.02f for faster tracer
         if (lr) Destroy(lr.gameObject);
+    }
+
+    void PlaceBulletDecal(RaycastHit hit)
+    {
+        if (!bulletDecalPrefab) return;
+
+        Transform parent = hit.rigidbody ? hit.rigidbody.transform : hit.collider.transform;
+
+        var decal = Instantiate(bulletDecalPrefab, parent);
+        decal.transform.SetPositionAndRotation(hit.point + hit.normal * 0.001f,
+                                               Quaternion.LookRotation(-hit.normal));
+
+        // misura del proiettore (X/Y = lato decal, Z = profondità di proiezione)
+        decal.size = new Vector3(bulletDecalSize, bulletDecalSize, 0.1f); // Z più grande per evitare clipping
+
+        // layer sicuro (visibile alla WorldCam)
+        decal.gameObject.layer = LayerMask.NameToLayer("Default");
+
+        // se hai Decal Layers attive in URP, sblocca tutto:
+#if UNITY_URP_DECAL // simbolico: se non compila, togli l'#if
+        decal.decalLayerMask = uint.MaxValue; // "Everything"
+#endif
+
+        decal.transform.Rotate(0f, 0f, Random.Range(0f, 360f), Space.Self);
+
+        Destroy(decal.gameObject, bulletDecalLife);
+
+        Debug.Log($"Decal spawned on {hit.collider.name} at {hit.point}");
     }
 }
