@@ -11,9 +11,11 @@ public class Gun : MonoBehaviour
     public int damage = 10;
     public LayerMask hitMask = ~0;
     public GameObject impactFx; // metti un prefab semplice
-    public DecalProjector bulletDecalPrefab;
-    public float bulletDecalSize = 0.12f; // 12 cm
-    public float bulletDecalLife = 12f;
+    
+    [Header("Bullet Holes")]
+    public GameObject bulletHolePrefab;   // prefab con plane/quad + materiale bullet hole
+    public float bulletHoleSize = 0.12f;  // grandezza in metri
+    public float bulletHoleLife = 12f;
     public LineRenderer tracerPrefab;
     public ParticleSystem muzzleFx; // assegna MuzzleFlash
     public ParticleSystem muzzleSmoke;
@@ -78,7 +80,7 @@ public class Gun : MonoBehaviour
                 Destroy(fx, 2f); // o fx.GetComponent<ParticleSystem>().main.duration
             }
 
-            PlaceBulletDecal(hit);
+            PlaceBulletHole(hit);
 
             Debug.Log($"[Gun] Hit: {hit.collider.name} @ {hit.distance:0.0}m");
         }
@@ -127,31 +129,22 @@ public class Gun : MonoBehaviour
         if (lr) Destroy(lr.gameObject);
     }
 
-    void PlaceBulletDecal(RaycastHit hit)
+    void PlaceBulletHole(RaycastHit hit)
     {
-        if (!bulletDecalPrefab) return;
+        if (!bulletHolePrefab) return;
 
-        Transform parent = hit.rigidbody ? hit.rigidbody.transform : hit.collider.transform;
+        // ❌ niente bullet hole sui pushable (perché poi si muovono)
+        if (hit.rigidbody && hit.rigidbody.GetComponentInParent<Pushable>() != null)
+            return;
 
-        var decal = Instantiate(bulletDecalPrefab, parent);
-        decal.transform.SetPositionAndRotation(hit.point + hit.normal * 0.001f,
-                                               Quaternion.LookRotation(-hit.normal));
+        var hole = Instantiate(
+            bulletHolePrefab,
+            hit.point + hit.normal * 0.001f,
+            Quaternion.LookRotation(-hit.normal)
+        );
 
-        // misura del proiettore (X/Y = lato decal, Z = profondità di proiezione)
-        decal.size = new Vector3(bulletDecalSize, bulletDecalSize, 0.1f); // Z più grande per evitare clipping
-
-        // layer sicuro (visibile alla WorldCam)
-        decal.gameObject.layer = LayerMask.NameToLayer("Default");
-
-        // se hai Decal Layers attive in URP, sblocca tutto:
-#if UNITY_URP_DECAL // simbolico: se non compila, togli l'#if
-        decal.decalLayerMask = uint.MaxValue; // "Everything"
-#endif
-
-        decal.transform.Rotate(0f, 0f, Random.Range(0f, 360f), Space.Self);
-
-        Destroy(decal.gameObject, bulletDecalLife);
-
-        Debug.Log($"Decal spawned on {hit.collider.name} at {hit.point}");
+        hole.transform.localScale = Vector3.one * bulletHoleSize;   // size fissa world-space
+        hole.transform.Rotate(0f, 0f, Random.Range(0f, 360f), Space.Self);
+        Destroy(hole, bulletHoleLife);
     }
 }
