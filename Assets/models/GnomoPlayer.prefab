@@ -484,6 +484,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33ac0af6ca6af3a4689c36f1e7e21633, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Gun
+  fireMouseButton: 0
+  singleShot: 0
   cam: {fileID: 3324368576962606440}
   muzzle: {fileID: 3711315695428168644}
   fireRate: 10
@@ -940,7 +942,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 236ec0d1c5365de49a66ab98d967acf0, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.641
+      value: 0.572
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 236ec0d1c5365de49a66ab98d967acf0, type: 3}
       propertyPath: m_LocalPosition.y
@@ -948,7 +950,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 236ec0d1c5365de49a66ab98d967acf0, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -3.75
+      value: -3.74
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 236ec0d1c5365de49a66ab98d967acf0, type: 3}
       propertyPath: m_LocalRotation.w

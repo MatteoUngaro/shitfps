@@ -4,6 +4,12 @@ using UnityEngine.Rendering.Universal;
 
 public class Gun : MonoBehaviour
 {
+    public enum FireMouseButton { Left, Right }   // <-- scelta tasto
+
+    [Header("Input")]
+    public FireMouseButton fireMouseButton = FireMouseButton.Left;
+    public bool singleShot = false;  // se true, non puoi tenere premuto per sparare
+
     public Camera cam;
     public Transform muzzle;
     public float fireRate = 10f;
@@ -39,9 +45,29 @@ public class Gun : MonoBehaviour
 
     void Update()
     {
-        if (Mouse.current.leftButton.isPressed && Time.time >= nextShot)
+        var mouse = Mouse.current;
+        bool firePressed = false;
+        bool fireJustPressed = false;
+
+        if (mouse != null)
         {
-            nextShot = Time.time + 1f / fireRate;
+            if (fireMouseButton == FireMouseButton.Left)
+            {
+                firePressed = mouse.leftButton.isPressed;
+                fireJustPressed = mouse.leftButton.wasPressedThisFrame;
+            }
+            else
+            {
+                firePressed = mouse.rightButton.isPressed;
+                fireJustPressed = mouse.rightButton.wasPressedThisFrame;
+            }
+        }
+
+        bool shouldShoot = singleShot ? fireJustPressed : firePressed;
+        
+        if (shouldShoot && (singleShot || Time.time >= nextShot))
+        {
+            if (!singleShot) nextShot = Time.time + 1f / fireRate;
             Shoot();
         }
     }
@@ -57,17 +83,23 @@ public class Gun : MonoBehaviour
         {
             endPoint = hit.point;
 
-            var d = hit.collider.GetComponentInParent<IDamageable>();
-            if (d != null) d.TakeDamage(damage); // :contentReference[oaicite:1]{index=1}
+            Debug.Log($"HIT: {hit.collider.name}  hasDamageable:{hit.collider.GetComponentInParent<IDamageable>()!=null}");
 
-            // KNOCKBACK / PUSH
+            var d = hit.collider.GetComponentInParent<IDamageable>();
+            if (d != null) d.TakeDamage(damage);
+
+            var piece = hit.collider.GetComponentInParent<BreakablePiece>();
+            if (piece != null)
+            {
+                var rb = piece.GetComponent<Rigidbody>();
+                if (rb) rb.AddForceAtPosition(cam.transform.forward * bulletImpulse, hit.point, ForceMode.Impulse);
+            }
+
             if (hit.rigidbody && (!onlyPushPushables || hit.rigidbody.GetComponentInParent<Pushable>()))
             {
                 float mult = 1f;
                 var p = hit.rigidbody.GetComponentInParent<Pushable>();
                 if (p) mult = p.impulseMultiplier;
-
-                // impulso nella direzione di tiro, applicato nel punto d'impatto (così prende anche coppia)
                 hit.rigidbody.AddForceAtPosition(cam.transform.forward * bulletImpulse * mult, hit.point, ForceMode.Impulse);
             }
 
@@ -76,12 +108,10 @@ public class Gun : MonoBehaviour
                 var fx = Instantiate(impactFx, hit.point, Quaternion.LookRotation(hit.normal));
                 foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>())
                     ps.Play();
-
-                Destroy(fx, 2f); // o fx.GetComponent<ParticleSystem>().main.duration
+                Destroy(fx, 2f);
             }
 
             PlaceBulletHole(hit);
-
             Debug.Log($"[Gun] Hit: {hit.collider.name} @ {hit.distance:0.0}m");
         }
         else
@@ -89,13 +119,10 @@ public class Gun : MonoBehaviour
             Debug.Log("[Gun] Miss");
         }
 
-        // linea visiva nella Scene/Game per capire dove ha sparato
         Debug.DrawLine(muzzle ? muzzle.position : cam.transform.position, endPoint, Color.white, 0.1f);
 
-        // Play muzzle flash effect
         muzzleFx?.Play();
 
-        // Play muzzle smoke
         if (muzzleSmoke)
         {
             muzzleSmoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -105,16 +132,13 @@ public class Gun : MonoBehaviour
         if (tracerPrefab)
             StartCoroutine(DoTracer(muzzle ? muzzle.position : cam.transform.position, endPoint));
 
-        // 🎵 Play random gunshot sound
         if (fireSounds != null && fireSounds.Length > 0 && audioSource != null)
         {
             int idx = Random.Range(0, fireSounds.Length);
-
-            audioSource.pitch = Random.Range(minPitch, maxPitch); // variazione del pitch ±10%
+            audioSource.pitch = Random.Range(minPitch, maxPitch);
             audioSource.PlayOneShot(fireSounds[idx]);
         }
 
-        // Trigger visual recoil
         GetComponent<GunRecoil>()?.DoRecoil();
     }
 
@@ -125,17 +149,14 @@ public class Gun : MonoBehaviour
         lr.positionCount = 2;
         lr.SetPosition(0, start);
         lr.SetPosition(1, end);
-        yield return new WaitForSeconds(0.02f); // Reduced from 0.05f to 0.02f for faster tracer
+        yield return new WaitForSeconds(0.02f);
         if (lr) Destroy(lr.gameObject);
     }
 
     void PlaceBulletHole(RaycastHit hit)
     {
         if (!bulletHolePrefab) return;
-
-        // ❌ niente bullet hole sui pushable (perché poi si muovono)
-        if (hit.rigidbody && hit.rigidbody.GetComponentInParent<Pushable>() != null)
-            return;
+        if (hit.rigidbody && hit.rigidbody.GetComponentInParent<Pushable>() != null) return;
 
         var hole = Instantiate(
             bulletHolePrefab,
@@ -143,7 +164,7 @@ public class Gun : MonoBehaviour
             Quaternion.LookRotation(-hit.normal)
         );
 
-        hole.transform.localScale = Vector3.one * bulletHoleSize;   // size fissa world-space
+        hole.transform.localScale = Vector3.one * bulletHoleSize;
         hole.transform.Rotate(0f, 0f, Random.Range(0f, 360f), Space.Self);
         Destroy(hole, bulletHoleLife);
     }
